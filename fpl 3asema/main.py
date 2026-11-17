@@ -1,70 +1,44 @@
 from api.data_mapper import DataMapper
-
-import requests
-
+from models.league import League
 
 
-data_mapper=DataMapper()
+data_mapper = DataMapper()
 
-managers=data_mapper.map_manager_data()
+# ---- Managers ---------------------------------------------------------------
+managers = data_mapper.map_manager_data()
+manager_dict = {manager.id: manager for manager in managers}
 
-# for manager in managers:
-#     print(f"Manager ID: {manager.id}, Name: {manager.first_name} {manager.last_name}, Team Name: {manager.team_name}")        
-manager_dict = {
-    manager.id: manager
-    for manager in managers
-}
+# ---- League -----------------------------------------------------------------
+# A league doesn't hold its managers; membership is a separate list of
+# (league_id, manager_id) pairs (the same idea as a link table in a database).
+league = League(id=1, name="My League")
+league_managers = [(league.id, manager.id) for manager in managers]
 
-# print(manager_dict.keys())
+# ---- Players ----------------------------------------------------------------
+players = data_mapper.map_player_data()
+players_dict = {player.id: player for player in players}
 
-manager_ids=manager_dict.keys()
-gameweek=[1,2,3,4,5,6,7,8,9,10]
-
-players=data_mapper.map_player_data()
-
-players_dict = {
-    player.id: player
-    for player in players
-}
-# # print(players[0].id)
-
-# # pl_gameweek_history=data_mapper.map_player_gameweek_data(players[0]["player_id"])
-
-# # players[0]["gameweeks"]=pl_gameweek_history
-
+# player_id -> list of PlayerGameweek
+player_gameweeks = {}
 for player in players:
-    pl_gameweek_history=data_mapper.map_player_gameweek_data(player.id)
+    player_gameweeks[player.id] = data_mapper.map_player_gameweek_data(player.id)
 
-    player.gameweeks=pl_gameweek_history
+# ---- Manager gameweeks and picks --------------------------------------------
+# manager_id -> list of ManagerGameweek
+manager_gameweeks = {}
+# (manager_id, gameweek) -> list of PlayerPick
+player_picks = {}
 
+for manager_id in manager_dict:
+    manager_gameweeks[manager_id] = data_mapper.map_manager_gameweek_history(manager_id)
 
-for manager_id in manager_ids:
-    for gw in gameweek:
-        playerPick_history=data_mapper.map_playerPick_history(manager_id,gw,players_dict)
-        print(playerPick_history)
-                
+    # Only the gameweeks this manager actually played
+    for manager_gameweek in manager_gameweeks[manager_id]:
+        gw = manager_gameweek.gameweek
+        player_picks[(manager_id, gw)] = data_mapper.map_playerPick_history(manager_id, gw)
 
-# player_id=69432
-
-# manager_history=data_mapper.map_manager_gameweek_history(player_id)
-
-# for m in manager_history:
-#     print(m.bank_value)
-
-
-# x=players[0].gameweeks[0].points
-
-# print(x)
-
-# url="https://fantasy.premierleague.com/api/element-summary/1/"
-
-# response=requests.get(url)
-
-# response.raise_for_status()
-
-# data=response.json()
-
-# d=data["history"]
-
-# for dx in d:
-#     print(dx["element"])
+# ---- Quick look at the result -----------------------------------------------
+for (manager_id, gw), picks in player_picks.items():
+    captain = next((pick for pick in picks if pick.captain), None)
+    captain_name = players_dict[captain.player_id].first_name+" "+players_dict[captain.player_id].last_name if captain else "-"
+    print(f"{manager_dict[manager_id].team_name} | GW{gw} | captain: {captain_name}")

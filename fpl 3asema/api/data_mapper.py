@@ -55,6 +55,8 @@ class DataMapper:
         pl_gameweek_history = []
         for player_gameweek in player_gameweek_history:
             pl_gameweek = PlayerGameweek(
+                player_id=player_id,
+                fixture_id=player_gameweek["fixture"],
                 gameweek=player_gameweek["round"],
                 points=player_gameweek["total_points"],
                 minutes=player_gameweek["minutes"],
@@ -76,6 +78,7 @@ class DataMapper:
         mg_gameweek_history = []
         for x in manager_gameweek.get("current", []):
             mg_gameweek = ManagerGameweek(
+                manager_id=managerId,
                 gameweek=x["event"],
                 points=x["points"],
                 total_points=x["total_points"],
@@ -87,7 +90,7 @@ class DataMapper:
 
         return mg_gameweek_history
 
-    def map_playerPick_history(self, manager_id, gameweek, player_dict):
+    def map_playerPick_history(self, manager_id, gameweek):
         playerPick_gameweek = self.api_manager.get_playerPick_history(manager_id, gameweek)
         if playerPick_gameweek is None:
             # Expected for gameweeks the manager didn't play (or not yet played)
@@ -95,13 +98,10 @@ class DataMapper:
 
         pl_pick_gameweek_history = []
         for x in playerPick_gameweek.get("picks", []):
-            player = player_dict.get(x["element"])
-            if player is None:
-                print(f"Unknown player id {x['element']} in manager {manager_id} GW{gameweek}")
-                continue
-
             pl_pick_gameweek = PlayerPick(
-                player=player,
+                manager_id=manager_id,
+                gameweek=gameweek,
+                player_id=x["element"],
                 position=x["position"],
                 captain=x["is_captain"],
                 vice_captain=x["is_vice_captain"],
